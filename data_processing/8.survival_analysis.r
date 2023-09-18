@@ -1,5 +1,5 @@
 ##Script for survival analysis of cancer cluster and LME 
-##Yulan Deng, last updated 2023-4-20
+##Yulan Deng, last updated 2023-9-18
 ##my e-mail:kndeajs@163.com
 
 ###################################################
@@ -187,48 +187,3 @@ Diff_Survival<-survdiff(yDFS~Clusters)
 P_Value<-pchisq(Diff_Survival$chisq,length(table(Clusters))-1,lower.tail=F)
 save(P_Value,Sur_Curve,cliniT,file="E1_signature_GSE140343_DFS.RData")
 
-########################################################
-#survival analysis of cancer cluster LME04 in GSE135222#
-########################################################
-#${workDir} is the working directory
-#${clinicalFile} is the clinical data of GSE135222
-#${ecotypeFile} is the fraction of LME
-#${sampleID} is the file of matching sample ID
-#${SraRunTable} is the table downloaded from SRA, with SRA sample ID.
-#${GEOtable} is the table downloaded from GEO, with GEO sample ID.
-
-#Load required packages
-library(survival)
-library(RColorBrewer)
-
-#Set working directory
-setwd(workDir)
-
-#Load the clinical information of GSE135222
-load(clinicalFile)
-
-#Load the ecotype fraction
-fraction <- read.table(file=ecotypeFile,sep="\t",stringsAsFactors=F,header=T)
-
-#match sample ID
-sample_match <- read.table(file=sampleID,sep="\t",stringsAsFactors=F,header=F)
-smpId1 <- read.table(file=SraRunTable,sep=",",quote =,stringsAsFactors=F,header=T)
-clini1 <- read.table(file=GEOtable,stringsAsFactors=F,header=T) 
-smpId1_clin <- cbind(smpId1[,c("Run","Sample.Name")],
-clini1[match(smpId1[,"GEO_Accession..exp."],clini1[,"Sample_id"]),"Response"])
-colnames(smpId1_clin) = c("SRR","GSM","response")
-
-#cox analysis
-fraction <- fraction[,smpId1_clin[match(sample_match[,1],smpId1_clin[,2]),1]]
-ypfs <-Surv(Jung_clinic[sample_match[,2],"PFS"],Jung_clinic[sample_match[,2],"PD_Event.1_Censoring.0"])
-coxph(ypfs~as.numeric(unlist(fraction[4,])>=quantile(unlist(fraction[4,]),probs=0.75)))
-
-#save data for KM plot
-Clusters <- rep(2,ncol(fraction))
-Clusters[unlist(fraction[4,])>=quantile(unlist(fraction[4,]),probs=0.75)] <- 1
-cliniT <- data.frame(recurrenceTime=Jung_clinic[sample_match[,2],"PFS"],
-label=Jung_clinic[sample_match[,2],"PD_Event.1_Censoring.0"],Clusters=Clusters,stringsAsFactors=F)
-Sur_Curve<-survfit(Surv(recurrenceTime,label)~Clusters,data = cliniT)
-Diff_Survival<-survdiff(ypfs~Clusters)
-P_Value<-pchisq(Diff_Survival$chisq,length(table(Clusters))-1,lower.tail=F)
-save(P_Value,Sur_Curve,cliniT,file="E4_signature_GSE135222.RData")
